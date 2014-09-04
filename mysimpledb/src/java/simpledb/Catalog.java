@@ -17,13 +17,17 @@ import java.util.concurrent.ConcurrentHashMap;
  * @Threadsafe
  */
 public class Catalog {
+	
+	ConcurrentHashMap<Integer,Object[]> cat; 		// keeps track of the catalog: key = tableid, value = [DbFile, name, pkey]
+	ConcurrentHashMap<String,Integer> idlookup; 	// shortcut for reverse lookup of keys
 
     /**
      * Constructor.
      * Creates a new, empty catalog.
      */
     public Catalog() {
-        // some code goes here
+        cat = new ConcurrentHashMap<Integer,Object[]>();
+        idlookup = new ConcurrentHashMap<String,Integer>();
     }
 
     /**
@@ -37,7 +41,11 @@ public class Catalog {
      *                  conflict exists, use the last table to be added as the table for a given name.
      */
     public void addTable(DbFile file, String name, String pkeyField) {
-        // some code goes here
+        int tableid = file.getId();
+        Object[] val = {file, name, pkeyField};
+        
+        cat.put(tableid, val);
+        idlookup.put(name,tableid);
     }
 
     public void addTable(DbFile file, String name) {
@@ -62,8 +70,10 @@ public class Catalog {
      * @throws NoSuchElementException if the table doesn't exist
      */
     public int getTableId(String name) throws NoSuchElementException {
-        // some code goes here
-        return 0;
+        if (name==null || !(idlookup.containsKey(name)))
+        	throw new NoSuchElementException("table with name " + name + " does not exist");
+        
+        return idlookup.get(name);
     }
 
     /**
@@ -74,8 +84,10 @@ public class Catalog {
      * @throws NoSuchElementException if the table doesn't exist
      */
     public TupleDesc getTupleDesc(int tableid) throws NoSuchElementException {
-        // some code goes here
-        return null;
+        if (!(cat.containsKey(tableid)))
+        	throw new NoSuchElementException("table id " + tableid + " does not exist");
+        
+        return ((DbFile) cat.get(tableid)[0]).getTupleDesc();
     }
 
     /**
@@ -86,30 +98,36 @@ public class Catalog {
      *                function passed to addTable
      */
     public DbFile getDatabaseFile(int tableid) throws NoSuchElementException {
-        // some code goes here
-        return null;
+    	if (!(cat.containsKey(tableid)))
+        	throw new NoSuchElementException("table id " + tableid + " does not exist");
+        
+    	return (DbFile) cat.get(tableid)[0];
     }
 
     public String getPrimaryKey(int tableid) {
-        // some code goes here
-        return null;
+    	if (!(cat.containsKey(tableid)))
+        	throw new NoSuchElementException("table id " + tableid + " does not exist");
+        
+    	return (String) cat.get(tableid)[2];
     }
 
     public Iterator<Integer> tableIdIterator() {
-        // some code goes here
-        return null;
+        return cat.keySet().iterator();
     }
 
     public String getTableName(int id) {
-        // some code goes here
-        return null;
+    	if (!(cat.containsKey(id)))
+        	throw new NoSuchElementException("table id " + id + " does not exist");
+        
+    	return (String) cat.get(id)[1];
     }
 
     /**
      * Delete all tables from the catalog
      */
     public void clear() {
-        // some code goes here
+        cat.clear();
+        idlookup.clear();
     }
 
     /**
