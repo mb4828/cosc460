@@ -29,6 +29,18 @@ public class BufferPool {
      * constructor instead.
      */
     public static final int DEFAULT_PAGES = 50;
+    
+    /**
+     * Thread-safe hash map holding the buffer pool
+     * key = PageId pageId
+     * value = Page page
+     */
+    private ConcurrentHashMap<PageId,Page> bpool;
+    
+    /**
+     * Maximum size that the buffer pool can be
+     */
+    private int maxsize;
 
     /**
      * Creates a BufferPool that caches up to numPages pages.
@@ -36,7 +48,8 @@ public class BufferPool {
      * @param numPages maximum number of pages in this buffer pool.
      */
     public BufferPool(int numPages) {
-        // some code goes here
+        bpool = new ConcurrentHashMap<PageId, Page>(numPages);
+        maxsize = numPages;
     }
 
     public static int getPageSize() {
@@ -65,8 +78,19 @@ public class BufferPool {
      */
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException {
-        // some code goes here
-        return null;
+        
+        if (bpool.contains(pid))								// 1. check if page is already in the buffer pool
+        	return bpool.get(pid);								// 2a. page is in the buffer pool, so simply return it
+        
+        Catalog cat = Database.getCatalog();					// 2b. page is not in the buffer pool
+        DbFile db = cat.getDatabaseFile(pid.getTableId());		// 3. retrieve the DbFile from catalog
+        Page pg = db.readPage(pid);								// 4. read the required page from memory
+        
+        if (bpool.size() >= this.maxsize)						// 5. check if there is room in the buffer pool
+        	throw new DbException("Buffer pool is full");		// 6a. buffer pool is full
+        
+        bpool.put(pid, pg);										// 6b. put the newly retrieved page in the buffer pool
+        return pg;												// 7. return the page to the caller
     }
 
     /**

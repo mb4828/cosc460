@@ -3,6 +3,7 @@ package simpledb;
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 /**
  * Tuple maintains information about the contents of a tuple. Tuples have a
@@ -12,6 +13,9 @@ import java.util.Iterator;
 public class Tuple implements Serializable {
 
     private static final long serialVersionUID = 1L;
+    private TupleDesc td;
+    private RecordId rid;
+    private Field[] flist;
 
     /**
      * Create a new tuple with the specified schema (type).
@@ -20,15 +24,15 @@ public class Tuple implements Serializable {
      *           instance with at least one field.
      */
     public Tuple(TupleDesc td) {
-        // some code goes here
+        this.td = td;
+        this.flist = new Field[td.numFields()];
     }
 
     /**
      * @return The TupleDesc representing the schema of this tuple.
      */
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+        return this.td;
     }
 
     /**
@@ -36,8 +40,7 @@ public class Tuple implements Serializable {
      * be null.
      */
     public RecordId getRecordId() {
-        // some code goes here
-        return null;
+        return rid;
     }
 
     /**
@@ -46,7 +49,7 @@ public class Tuple implements Serializable {
      * @param rid the new RecordId for this tuple.
      */
     public void setRecordId(RecordId rid) {
-        // some code goes here
+        this.rid = rid;
     }
 
     /**
@@ -56,7 +59,12 @@ public class Tuple implements Serializable {
      * @param f new value for the field.
      */
     public void setField(int i, Field f) {
-        // some code goes here
+    	if (i<0 || i >= this.flist.length)
+    		throw new NoSuchElementException(i+" is not a valid index");
+    	
+    	this.flist[i] = f;
+    	
+    	
     }
 
     /**
@@ -64,8 +72,10 @@ public class Tuple implements Serializable {
      * @return the value of the ith field, or null if it has not been set.
      */
     public Field getField(int i) {
-        // some code goes here
-        return null;
+    	if (i<0 || i >= this.flist.length)
+    		throw new NoSuchElementException(i+" is not a valid index");
+        
+    	return this.flist[i];
     }
 
     /**
@@ -77,8 +87,13 @@ public class Tuple implements Serializable {
      * where \t is any whitespace, except newline
      */
     public String toString() {
-        // some code goes here
-        throw new UnsupportedOperationException("Implement this");
+        String output = "";
+        
+        for (int i=0; i < this.td.numFields(); i++) {
+        	output += this.td.getFieldName(i) + "\\ ";
+        }
+        
+        return output;
     }
 
 }
