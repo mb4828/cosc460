@@ -5,21 +5,21 @@ After you complete lab 1, please answer the following questions.  For lab 1, the
 
 1. What is your name?  If you work with a partner, be sure to write both of your names.
 
-<Replace this text with your answer>
+Matt Brauner
 
 2. What did you think of this assignment?
 
-<Replace this text with your answer>
+It was a little bit frustrating. Instructions were often ambiguous with obsfucated hints, which made figuring out the code base even more difficult.
 
 3. What was the hardest part of this assignment?
 
-<Replace this text with your answer>
+Writing the iterator for HeapFile.java.
 
 4. Describe any missing or incomplete elements of your code.
 
-<Replace this text with your answer>
+Something is wrong with my iterator in HeapFile.java.
 
 5. Roughly how long did you spend working on this lab?
 
-<Replace this text with your answer>
+13 hours
 
