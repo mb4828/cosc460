@@ -202,9 +202,13 @@ public class TupleDesc implements Serializable {
     }
 
     public int hashCode() {
-        // If you want to use TupleDesc as keys for HashMap, implement this so
-        // that equal objects have equals hashCode() results
-        throw new UnsupportedOperationException("unimplemented");
+    	String hashstr = "";
+    	int l = this.numFields();
+    	
+    	for (int i=0; i<l; i++)
+    		hashstr += this.tdlist[i].toString();
+    	
+    	return hashstr.hashCode();
     }
 
     /**

@@ -10,6 +10,9 @@ import java.util.*;
 public class SeqScan implements DbIterator {
 
     private static final long serialVersionUID = 1L;
+    private DbFileIterator dbi;
+    private int tableid;
+    private String tableAlias;
 
     /**
      * Creates a sequential scan over the specified table as a part of the
@@ -25,7 +28,9 @@ public class SeqScan implements DbIterator {
      *                   tableAlias.null, or null.null).
      */
     public SeqScan(TransactionId tid, int tableid, String tableAlias) {
-        // some code goes here
+        dbi = Database.getCatalog().getDatabaseFile(tableid).iterator(tid);
+        this.tableid = tableid;
+        this.tableAlias = tableAlias;
     }
 
     /**
@@ -33,16 +38,14 @@ public class SeqScan implements DbIterator {
      * be the actual name of the table in the catalog of the database
      */
     public String getTableName() {
-        // some code goes here
-        return null;
+        return Database.getCatalog().getTableName(this.tableid);
     }
 
     /**
      * @return Return the alias of the table this operator scans.
      */
     public String getAlias() {
-        // some code goes here
-        return null;
+        return this.tableAlias;
     }
 
     public SeqScan(TransactionId tid, int tableid) {
@@ -50,7 +53,7 @@ public class SeqScan implements DbIterator {
     }
 
     public void open() throws DbException, TransactionAbortedException {
-        // some code goes here
+        dbi.open();
     }
 
     /**
@@ -63,27 +66,39 @@ public class SeqScan implements DbIterator {
      * prefixed with the tableAlias string from the constructor.
      */
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+        TupleDesc td= Database.getCatalog().getTupleDesc(this.tableid);
+        
+        Iterator<TupleDesc.TDItem> tdi = td.iterator();
+        int numfields = td.numFields();
+        Type[] typeAr = new Type[numfields];
+        String[] fieldAr = new String[numfields];
+        
+        int i=0;
+        while (tdi.hasNext()) {
+        	TupleDesc.TDItem item = tdi.next();
+        	typeAr[i] = item.fieldType;
+        	fieldAr[i] = this.tableAlias + "." + item.fieldName;
+        	i++;
+        }
+        
+        return new TupleDesc(typeAr,fieldAr);
     }
 
     public boolean hasNext() throws TransactionAbortedException, DbException {
-        // some code goes here
-        return false;
+        return dbi.hasNext();
     }
 
     public Tuple next() throws NoSuchElementException,
             TransactionAbortedException, DbException {
-        // some code goes here
-        return null;
+        return dbi.next();
     }
 
     public void close() {
-        // some code goes here
+        dbi.close();
     }
 
     public void rewind() throws DbException, NoSuchElementException,
             TransactionAbortedException {
-        // some code goes here
+        dbi.rewind();
     }
 }
