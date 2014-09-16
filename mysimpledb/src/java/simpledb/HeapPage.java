@@ -23,7 +23,7 @@ public class HeapPage implements Page {
 
         @Override
         public boolean hasNext() {
-        	// System.out.println("curridx: "+currIdx+", fullslots: "+fullSlots+", numslots: "+numSlots);
+        	//System.out.println("curridx: "+currIdx+", fullslots: "+fullSlots+", numslots: "+numSlots);
         	if (currIdx < numSlots && fullSlots > 0)
         		return true;
         	return false;
@@ -32,18 +32,20 @@ public class HeapPage implements Page {
         @Override
         public Tuple next() {
         	// System.out.println("NEXT TUP");
-        	while (hasNext()) {
-            	Tuple nextTup = tuples[currIdx];
-            	currIdx++;
-            	
-            	if (nextTup != null) {
-            		fullSlots--;
-            		// System.out.println("removed tuple from slot "+currIdx);
-            		return nextTup;
-            	}
-            }
+        	if (!hasNext())
+        		throw new NoSuchElementException();
         	
-        	throw new NoSuchElementException();
+        	Tuple nextTup = tuples[currIdx];
+        	
+        	while (!isSlotUsed(currIdx)) {
+        		currIdx++;
+        		nextTup = tuples[currIdx];
+        	}
+        	
+        	currIdx++;
+        	fullSlots--;
+        	System.out.println("got tuple from slot "+currIdx);
+        	return nextTup;
         }
 
         @Override
@@ -117,7 +119,7 @@ public class HeapPage implements Page {
      * @return the number of bytes in the header of a page in a HeapFile with each tuple occupying tupleSize bytes
      */
     private int getHeaderSize() {
-        return (int) Math.ceil(this.getNumTuples()/8);
+        return (int) Math.ceil(this.getNumTuples()/8.0);
     }
 
     /**
@@ -334,6 +336,7 @@ public class HeapPage implements Page {
      * Returns true if associated slot on this page is filled.
      */
     public boolean isSlotUsed(int i) {
+    	//System.out.println("Checking slot: "+i);
         byte header_byte = this.header[i/8];
         int slot_mask = (int) Math.pow(2,(i%8));
         if ((header_byte & slot_mask)==slot_mask)

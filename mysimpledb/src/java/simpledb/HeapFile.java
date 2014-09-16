@@ -189,8 +189,10 @@ public class HeapFile implements DbFile {
     public DbFileIterator iterator(TransactionId tid) {
         try {
 			return new dbIterator();
-        } catch (TransactionAbortedException | DbException e) {
+        } catch (TransactionAbortedException e) {
 			throw new IllegalStateException("Could not create dbfileiterator");
+        } catch (DbException e) {
+        	throw new IllegalStateException("Could not create dbfileiterator");
         }
     }
 
