@@ -44,7 +44,7 @@ public class HeapPage implements Page {
         	
         	currIdx++;
         	fullSlots--;
-        	System.out.println("got tuple from slot "+currIdx);
+        	//System.out.println("got tuple from slot "+currIdx);
         	return nextTup;
         }
 
@@ -59,6 +59,9 @@ public class HeapPage implements Page {
     final byte header[];
     final Tuple tuples[];
     final int numSlots;
+    
+    private boolean dirty;
+    private TransactionId dirtyid;
 
     byte[] oldData;
     private final Byte oldDataLock = new Byte((byte) 0);
@@ -283,8 +286,17 @@ public class HeapPage implements Page {
      *                     already empty.
      */
     public void deleteTuple(Tuple t) throws DbException {
-        // some code goes here
-        // not necessary for lab1
+    	PageId pno = t.getRecordId().getPageId();
+    	int tno = t.getRecordId().tupleno();
+    	
+    	if (pno != this.pid)										// double check page id
+    		throw new DbException("tuple is not from this page");
+        if (tno>=numSlots)											// is tuple on this page?
+        	throw new DbException("tuple is not on page");
+        if (!isSlotUsed(tno))										// is slot already empty?
+        	throw new DbException("slot is already empty");
+        
+        markSlotUsed(tno,false);
     }
 
     /**
@@ -296,8 +308,19 @@ public class HeapPage implements Page {
      *                     is mismatch.
      */
     public void insertTuple(Tuple t) throws DbException {
-        // some code goes here
-        // not necessary for lab1
+        if (getNumEmptySlots()<=0)
+        	throw new DbException("page is full");
+        
+        int i=0;
+        for (; i<numSlots; i++) {
+        	if (!isSlotUsed(i))
+        		break;
+        }
+        
+        System.out.println("slot " + i);
+        t.setRecordId(new RecordId(pid, i));
+        tuples[i] = t;
+        markSlotUsed(i, true);
     }
 
     /**
@@ -305,17 +328,17 @@ public class HeapPage implements Page {
      * that did the dirtying
      */
     public void markDirty(boolean dirty, TransactionId tid) {
-        // some code goes here
-        // not necessary for lab1
+        this.dirty = dirty;
+        this.dirtyid = tid;
     }
 
     /**
      * Returns the tid of the transaction that last dirtied this page, or null if the page is not dirty
      */
     public TransactionId isDirty() {
-        // some code goes here
-        // Not necessary for lab1
-        return null;      
+    	if (this.dirty)
+    		return dirtyid;
+    	return null;
     }
 
     /**
@@ -325,7 +348,7 @@ public class HeapPage implements Page {
         int empty_slots = this.numSlots;
         
         for (int i=0; i<this.numSlots; i++) {
-        	if (this.isSlotUsed(i))
+        	if (isSlotUsed(i))
         		empty_slots--;
         }
         
@@ -337,6 +360,7 @@ public class HeapPage implements Page {
      */
     public boolean isSlotUsed(int i) {
     	//System.out.println("Checking slot: "+i);
+    	
         byte header_byte = this.header[i/8];
         int slot_mask = (int) Math.pow(2,(i%8));
         if ((header_byte & slot_mask)==slot_mask)
@@ -348,8 +372,19 @@ public class HeapPage implements Page {
      * Abstraction to fill or clear a slot on this page.
      */
     private void markSlotUsed(int i, boolean value) {
-        // some code goes here
-        // not necessary for lab1
+        // warning: this function does not check whether we are overwriting pre-existing data
+    	// it is only a helper function!
+    	byte header_byte = this.header[i/8];
+    	int slot_mask = (int) Math.pow(2,(i%8));
+    	
+    	if (value) {
+    		// marking the slot as used
+    		this.header[i/8] = (byte) (header_byte | slot_mask);
+    	} else {
+    		// marking the slot as free
+    		int inverted_mask = 255 ^ slot_mask;
+    		this.header[i/8] = (byte) (header_byte & inverted_mask);
+    	}
     }
 
     /**

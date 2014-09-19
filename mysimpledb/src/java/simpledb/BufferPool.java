@@ -1,8 +1,9 @@
 package simpledb;
 
 import java.io.*;
-
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 /**
  * BufferPool manages the reading and writing of pages into memory from
@@ -38,6 +39,14 @@ public class BufferPool {
     private ConcurrentHashMap<PageId,Page> bpool;
     
     /**
+     * Thread-safe queue used to perform LRU page evictions.
+     * Because most updates will affect the MRU page, the MRU page
+     * will be stored at the HEAD of the queue and the LRU page will
+     * be stored at the TAIL in order to increase efficiency.
+     */
+    private ConcurrentLinkedDeque<PageId> bqueue;
+    
+    /**
      * Maximum size that the buffer pool can be
      */
     private int maxsize;
@@ -49,6 +58,7 @@ public class BufferPool {
      */
     public BufferPool(int numPages) {
         bpool = new ConcurrentHashMap<PageId, Page>(numPages);
+        bqueue = new ConcurrentLinkedDeque<PageId>();
         maxsize = numPages;
     }
 
@@ -78,21 +88,26 @@ public class BufferPool {
      */
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException {
+    	
+        if (bpool.containsKey(pid))	{							// check if page is already in the buffer pool
+        	bqueue.remove(pid);									// update LRU queue to show that page is MRU
+        	bqueue.addFirst(pid);								// pid gets added to the HEAD of the queue
+        	return bpool.get(pid);								// return the page
+        }
         
-        if (bpool.contains(pid))								// 1. check if page is already in the buffer pool
-        	return bpool.get(pid);								// 2a. page is in the buffer pool, so simply return it
+        Catalog cat = Database.getCatalog();					// page is not in the buffer pool
+        DbFile db = cat.getDatabaseFile(pid.getTableId());		// retrieve the DbFile from catalog
+        Page pg = db.readPage(pid);								// read the required page from memory
         
-        Catalog cat = Database.getCatalog();					// 2b. page is not in the buffer pool
-        DbFile db = cat.getDatabaseFile(pid.getTableId());		// 3. retrieve the DbFile from catalog
-        Page pg = db.readPage(pid);								// 4. read the required page from memory
+        if (bpool.size() >= this.maxsize) {						// check if there is room in the buffer pool
+        	evictPage();										// buffer pool is full, so evict LRU page
+        }
         
-        if (bpool.size() >= this.maxsize)						// 5. check if there is room in the buffer pool
-        	throw new DbException("Buffer pool is full");		// 6a. buffer pool is full
-        
-        bpool.put(pid, pg);										// 6b. put the newly retrieved page in the buffer pool
-        return pg;												// 7. return the page to the caller
+        bpool.put(pid, pg);										// put the newly retrieved page in the buffer pool
+        bqueue.addFirst(pid);									// add the pid to the LRU queue
+        return pg;												// return the page to the caller
     }
-
+    
     /**
      * Releases the lock on a page.
      * Calling this is very risky, and may result in wrong behavior. Think hard
@@ -155,8 +170,10 @@ public class BufferPool {
      */
     public void insertTuple(TransactionId tid, int tableId, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
-        // some code goes here
-        // not necessary for lab1
+        
+    	DbFile dbf = Database.getCatalog().getDatabaseFile(tableId);	// retrieve database file
+    	ArrayList<Page> dlist = dbf.insertTuple(tid, t);				// insert tuple
+    	dirtyPageHelper(tid, dlist);									// update cache
     }
 
     /**
@@ -173,18 +190,48 @@ public class BufferPool {
      */
     public void deleteTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
-        // some code goes here
-        // not necessary for lab1
+    	
+    	int tableid = t.getRecordId().getPageId().getTableId();
+    	DbFile dbf = Database.getCatalog().getDatabaseFile(tableid);	// retrieve database file
+    	ArrayList<Page> dlist = dbf.deleteTuple(tid, t);				// delete tuple
+    	dirtyPageHelper(tid, dlist);									// update cache
     }
-
+    
+    /**
+     * Helper function for marking pages as dirty and updating their cache entry.
+     * @param tid 	transaction id
+     * @param dlist	list of pages to be updated
+     */
+    private void dirtyPageHelper(TransactionId tid, ArrayList<Page> dlist) {
+    	ListIterator<Page> li = dlist.listIterator();
+    	Page lp = null;
+    	
+    	while (li.hasNext()) {
+    		lp = li.next();
+    		lp.markDirty(true, tid);									// mark affected pages as dirty
+    		
+    		if (bpool.containsKey(lp.getId())) {						// update cache
+    			bpool.replace(lp.getId(), lp);
+    		} else {
+    			bpool.put(lp.getId(), lp);
+    		}
+    	}
+    }
+    
     /**
      * Flush all dirty pages to disk.
      * NB: Be careful using this routine -- it writes dirty data to disk so will
      * break simpledb if running in NO STEAL mode.
      */
     public synchronized void flushAllPages() throws IOException {
-        // some code goes here
-        // not necessary for lab1
+    	PageId pid = null;
+    	
+        for (Enumeration<PageId> e = bpool.keys(); e.hasMoreElements(); pid = e.nextElement()) {
+			HeapPage p = (HeapPage) bpool.get(pid);				// retrieve page from buffer pool
+        	
+        	if (p.isDirty() != null)							// check if page is dirty
+        		flushPage( ((PageId) p.getId()) );				// flush the page
+        }
 
     }
 
@@ -205,8 +252,14 @@ public class BufferPool {
      * @param pid an ID indicating the page to flush
      */
     private synchronized void flushPage(PageId pid) throws IOException {
-        // some code goes here
-        // not necessary for lab1
+    	DbFile dbf = Database.getCatalog().getDatabaseFile(pid.getTableId());	// retrieve database file
+    	HeapPage p = (HeapPage) bpool.get(pid);				// retrieve page from buffer pool
+    	
+    	if (p == null)
+    		return;											// page wasn't in buffer pool so our work is done
+    	
+    	dbf.writePage(p);									// write page to disk
+    	p.markDirty(false, null);							// set page as not dirty
     }
 
     /**
@@ -222,8 +275,16 @@ public class BufferPool {
      * Flushes the page to disk to ensure dirty pages are updated on disk.
      */
     private synchronized void evictPage() throws DbException {
-        // some code goes here
-        // not necessary for lab1
+        PageId pid = bqueue.removeLast();			// in my implementation, the LRU page is at the tail
+        
+        try {
+			flushPage(pid);							// flush the page to disk
+		} catch (IOException e) {
+			throw new DbException("DbException thrown");
+		}
+        
+        if (bpool.remove(pid) == null)				// remove it from the buffer pool
+        	throw new DbException("failed to evict page");
     }
 
 }

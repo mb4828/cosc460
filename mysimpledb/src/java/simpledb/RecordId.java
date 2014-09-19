@@ -49,9 +49,15 @@ public class RecordId implements Serializable {
     	if (!(o instanceof RecordId))
     		return false;
     	
-    	if (this.hashCode() != ((RecordId) o).hashCode())
-    		return false;
     	
+    	int mypno = pid.pageNumber();
+    	int comppno = ((RecordId) o).pid.pageNumber();
+    	int rtupnum = ((RecordId) o).tupleno;
+    	int ptnum = pid.getTableId();
+    	int comptnum = ((RecordId) o).pid.getTableId();
+    	
+    	if (mypno != comppno || this.tupleno != rtupnum || ptnum != comptnum)
+    		return false;
     	return true;
     }
 
