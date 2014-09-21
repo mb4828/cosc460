@@ -3,6 +3,14 @@ import java.io.*;
 
 public class Lab2Main {
 
+	private static String printtup(Tuple tup) {
+		String out = "";
+		for (int i=0; i<3; i++) {
+			out += tup.getField(i).toString() + " ";
+		}
+		return out;
+	}
+	
     public static void main(String[] argv) {
 
         // construct a 3-column table schema
@@ -38,7 +46,7 @@ public class Lab2Main {
         			newtup.setField(1, testfield);
         			newtup.setField(2, tup.getField(2));
         			
-        			System.out.println("Update tuple: " + tup + " to be: " + newtup);
+        			System.out.println("Update tuple: " + printtup(tup) + " to be: " + printtup(newtup));
         			
         			// update the old tuple with a new tuple
         			table1.deleteTuple(tid, tup);
@@ -55,7 +63,7 @@ public class Lab2Main {
 	        newtup.setField(1, newfield);
 	        newtup.setField(2, newfield);
 	        
-	        System.out.println("Insert tuple: " + newtup);
+	        System.out.println("Insert tuple: " + printtup(newtup));
 	        
 	        table1.insertTuple(tid, newtup);
 	        
@@ -66,7 +74,7 @@ public class Lab2Main {
 	        	f.rewind();
 	        	while (f.hasNext()) {
 	        		Tuple tup = f.next();
-	        		System.out.println("Tuple: " + tup);
+	        		System.out.println("Tuple: " + printtup(tup));
 	        	}
 	        	f.close();
 	        	

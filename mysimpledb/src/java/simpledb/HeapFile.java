@@ -197,7 +197,7 @@ public class HeapFile implements DbFile {
         
         if (i<numpages) {									// we found an empty slot on a pre-existing page
         	p.insertTuple(t);
-        	System.out.println("inserted tuple on page "+pid.pageNumber() + ", " + p.getNumEmptySlots() + " slots left");
+        	//System.out.println("inserted tuple on page "+pid.pageNumber() + ", " + p.getNumEmptySlots() + " slots left");
         } else {											// no free slots; need to create a new page
         	pid = new HeapPageId(tableid, i);
         	p = new HeapPage((HeapPageId) pid, HeapPage.createEmptyPageData());
@@ -205,7 +205,7 @@ public class HeapFile implements DbFile {
         	
         	writePage(p);									// write the page to the heapfile
         	p = (HeapPage) bp.getPage(tid, pid, null);		// call getpage to load the page into the buffer
-        	System.out.println("inserted tuple on a NEW PAGE");
+        	//System.out.println("inserted tuple on a NEW PAGE");
         }
         
         output.add(p);
