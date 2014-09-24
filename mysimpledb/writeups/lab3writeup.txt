@@ -3,19 +3,55 @@ Report for Lab 3
 
 Answer the questions from the lab description here.  Questions 8 and 9 do not require answers.
 
-1.
-2.
-3.
-4.
-5.
+1. Aggregate, Delete, Filter, HashEquiJoin, Insert, Join, Operator, OrderBy, Project, SeqScan, TupleIterator
+2. Aggregate, Delete, Filter, HashEquiJoin, Insert, Join, OrderBy, Project
+3. Select (filter), project (project), join (join)
+4. Next and hasNext are implemented in simpleDb.operator. Filter extends the operator class and uses its code, hence why it is a subclass.
+5.	
+	while iterR.hasNext():
+		tuple t = iterR.next()
+		if t matches predicate:
+			return t
+	return null
+
 6.
+	list = []
+	iterR.rewind()
+
+	while iterR.hasNext():
+		iterS.rewind()
+		tuple t1 = iterR.next()
+
+		while iterS.hasNext():
+			tuple t2 = iterS.next()
+			if t1 and t2 match join predicate:
+				tNew = merge(t1,t2)
+				list.append(tNew)
+	
 7.
+	if t1 == null and t1.hasNext():
+		t1 = iterR.next()
+
+	while t1 != null:
+		while iterS.hasNext():
+			t2 = iterS.next()
+			if t1 and t2 match join predicate:
+				tNew = merge(t1, t2)
+				return tNew
+		
+		if !iterR.hasNext()
+			break
+
+		t1 = iterR.next()
+		iterS.rewind()
+
+	return null
 
 After you complete lab 3, please answer the following questions.  
 
 1. What is your name?  If you work with a partner, be sure to write both of your names.
 
-<Replace this text with your answer>
+Matt Brauner
 
 2. What did you think of this assignment?
 
