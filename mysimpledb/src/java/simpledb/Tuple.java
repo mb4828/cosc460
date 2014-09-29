@@ -90,7 +90,7 @@ public class Tuple implements Serializable {
         String output = "";
         
         for (int i=0; i < this.td.numFields(); i++) {
-        	output += this.td.getFieldName(i) + "\\ ";
+        	output += this.getField(i) + " ";
         }
         
         return output;
