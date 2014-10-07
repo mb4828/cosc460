@@ -224,15 +224,24 @@ public class BufferPool {
      * break simpledb if running in NO STEAL mode.
      */
     public synchronized void flushAllPages() throws IOException {
+    	Enumeration<PageId> e = bpool.keys();
     	PageId pid = null;
     	
-        for (Enumeration<PageId> e = bpool.keys(); e.hasMoreElements(); pid = e.nextElement()) {
-			HeapPage p = (HeapPage) bpool.get(pid);				// retrieve page from buffer pool
-        	
-        	if (p.isDirty() != null)							// check if page is dirty
+    	if (e.hasMoreElements()) {
+    		pid = e.nextElement();
+    	}
+    	
+    	while (e != null) {
+    		HeapPage p = (HeapPage) bpool.get(pid);				// retrieve page from buffer pool
+    		
+    		if (p.isDirty() != null)							// check if page is dirty
         		flushPage( ((PageId) p.getId()) );				// flush the page
-        }
-
+    		
+    		if (e.hasMoreElements())							// get next pid
+    			pid = e.nextElement();
+    		else
+    			break;
+    	}
     }
 
     /**

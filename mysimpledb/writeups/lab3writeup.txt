@@ -55,17 +55,16 @@ Matt Brauner
 
 2. What did you think of this assignment?
 
-<Replace this text with your answer>
+It wasn't extremely difficult but it was long!
 
 3. What was the hardest part of this assignment?
 
-<Replace this text with your answer>
+Figuring out the right algorithms for the operators and writing the SQL queries.
 
 4. Describe any missing or incomplete elements of your code.
 
-<Replace this text with your answer>
+My code does not pass systemtest.DeleteTest. I don't know why and I don't have time to do any further debugging right now due to midterms and projects this week.
 
 5. Roughly how long did you spend working on this lab?
 
-<Replace this text with your answer>
-
+6-7 hours ish? (including lab time)

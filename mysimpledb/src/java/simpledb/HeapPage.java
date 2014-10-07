@@ -31,21 +31,18 @@ public class HeapPage implements Page {
 
         @Override
         public Tuple next() {
-        	// System.out.println("NEXT TUP");
+        	//System.out.println("NEXT TUP");
         	if (!hasNext())
-        		throw new NoSuchElementException();
-        	
-        	Tuple nextTup = tuples[currIdx];
+        		throw new NoSuchElementException("hasNext is false!");
         	
         	while (!isSlotUsed(currIdx)) {
         		currIdx++;
-        		nextTup = tuples[currIdx];
         	}
         	
         	currIdx++;
         	fullSlots--;
         	//System.out.println("got tuple from slot "+currIdx);
-        	return nextTup;
+        	return tuples[currIdx-1];
         }
 
         @Override
