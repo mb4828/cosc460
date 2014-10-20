@@ -5,6 +5,7 @@ package simpledb;
  */
 public class IntHistogram {
 	private int[] hist;			// contains the histogram buckets
+	private double[] thresh;	// contains the bucket thresholds (lower bounds)
 	private int hmax;			// maximum value in the histogram
 	private int hmin;			// minimum value in the histogram
 	private int hbuckets;		// number of buckets
@@ -31,25 +32,39 @@ public class IntHistogram {
         hmin = min;
         htotal = 0;
         
-        // gracefully handle too many buckets
+        // gracefully handle too extra buckets
         if (buckets > (max-min+1))
         	hbuckets = (max-min+1);
         else
         	hbuckets = buckets;
         
         hist = new int[hbuckets];
+        thresh = new double[hbuckets];
         
+        // initialize hist array
         for (int i=0; i < hist.length; i++) {
         	hist[i] = 0;
-        } 
+        }
         
-        System.out.println("NEW HISTOGRAM: buckets=" + hbuckets + ", min=" + hmin + ", max=" + hmax);
+        // initialize thresh array
+        for (int i=0; i < thresh.length; i++) {
+        	thresh[i] = getLowerBound(i);
+        }
     }
 
     private int whichBucket(int v) {
-    	if (v == hmax)
-    		return hbuckets-1;			// value belongs in the final bucket
-    	return (v-hmin) % hbuckets;
+    	if (thresh.length == 1)
+    		return 0;
+    	
+    	if (v >= thresh[thresh.length-1] && v <= hmax)
+    		return hbuckets-1;							// value belongs in the final bucket
+    	
+    	for (int i=0; i < thresh.length-1; i++) {
+    		if (v >= thresh[i] && v < thresh[i+1])
+    			return i;
+    	}
+    	
+    	return -1;
     }
     
     /**
@@ -73,8 +88,9 @@ public class IntHistogram {
     private double getWidth(int bucketnum) {
     	if (bucketnum != (hbuckets-1))
     		return (hmax-hmin+1) / hbuckets;
+    		
     	else
-    		return (hmax-hmin+1) % hbuckets;
+    		return (hmax+1-thresh[thresh.length-1]);
     }
     
     /**
@@ -82,15 +98,20 @@ public class IntHistogram {
      */
     private double getBucketSlice(int v) {
     	int bucketnum = whichBucket(v);
+    	System.out.println("w="+getWidth(bucketnum));
     	return hist[bucketnum]/getWidth(bucketnum);
     }
     
     /**
      * Returns the lower bound of the bucket which contains v
      */
-    private int getLowerBound(int v, int bucketnum) {
-    	int interval = (hmax-hmin+1) % hbuckets;
-    	return hmin + bucketnum*interval;
+    private double getLowerBound(int bucketnum) {
+    	double interval = (hmax-hmin+1) / hbuckets;
+    	
+    	if (interval == 0)
+    		interval = 1;
+    	
+    	return (hmin + bucketnum*interval);
     }
     
     /**
@@ -105,7 +126,7 @@ public class IntHistogram {
     		count += hist[i];
     	
     	// add partial buckets to the left of v
-    	count += (hist[bucketnum] / getWidth(bucketnum)) * (v - getLowerBound(v, bucketnum));
+    	count += (hist[bucketnum] / getWidth(bucketnum)) * (v - ((int) getLowerBound(bucketnum)));
     	
     	return count;
     }
@@ -121,33 +142,68 @@ public class IntHistogram {
      * @return Predicted selectivity of this particular operator and value
      */
     public double estimateSelectivity(Predicate.Op op, int v) {
-    	double slice = getBucketSlice(v);
+    	double fcount = 0;
+    	boolean flag = false;
+    	double slice = 0;
+    	double lowercount = 0;
+    	
+       	// check for out-of-range v
+    	if (v < hmin || v > hmax) {
+    		flag = true;
+    	}
+    	
+    	if (!flag) {
+	    	slice = getBucketSlice(v);
+	    	lowercount = getLowerCount(v);
+	    	
+	    	System.out.println("lowercount = " + lowercount);
+	    	System.out.println("slice = " + slice);
+	    	System.out.println("total = " + htotal);
+    	}
     	
     	if (op.equals(Predicate.Op.EQUALS)) {
     		// prediate is equals
-    		return slice/htotal;
-    	}
-    	if (op.equals(Predicate.Op.NOT_EQUALS)) {
+    		if (!flag)
+    			fcount = slice;
+    		else
+    			fcount = 0;
+    		
+    	} else if (op.equals(Predicate.Op.NOT_EQUALS)) {
     		// predicate is not equals
-    		return (htotal - slice) / htotal;
-    	}
-    	
-    	double fcount = 0;
-    	double lowercount = getLowerCount(v);
-    	
-    	if (op.equals(Predicate.Op.LESS_THAN) || op.equals(Predicate.Op.LESS_THAN_OR_EQ)) {
+    		if (!flag)
+    			fcount = (htotal - slice);
+    		else
+    			fcount = htotal;
+    		
+    	} else if (op.equals(Predicate.Op.LESS_THAN) || op.equals(Predicate.Op.LESS_THAN_OR_EQ)) {
     		// add lower count, save slice for later
-    		fcount += lowercount;
+    		if (!flag)
+    			fcount += lowercount;
+    		else if (v < hmin)
+    			fcount = 0;
+    		else if (v > hmin)
+    			fcount = htotal;
+    		
     	} else if (op.equals(Predicate.Op.GREATER_THAN) || op.equals(Predicate.Op.GREATER_THAN_OR_EQ)) {
     		// add inverse of lower count, save slice for later
-    		fcount += htotal - lowercount;
+    		if (!flag)
+    			fcount += htotal - lowercount;
+    		else if (v < hmin)
+    			fcount = htotal;
+    		else
+    			fcount = 0;
+    		
     	}
     	
-    	if (op.equals(Predicate.Op.LESS_THAN_OR_EQ) || op.equals(Predicate.Op.GREATER_THAN_OR_EQ)) {
+    	if (op.equals(Predicate.Op.LESS_THAN_OR_EQ) && (!flag)) {
     		// add slice in if necessary
     		fcount += slice;
-    	}
+	    } else if (op.equals(Predicate.Op.GREATER_THAN) && (!flag)) {
+	    	// subtract slice if necessary
+	    	fcount -= slice;
+	    }
     	
+    	System.out.println("selectivity = " + fcount/htotal);
     	return fcount / htotal;
     }
 
@@ -156,12 +212,10 @@ public class IntHistogram {
      */
     public String toString() {
     	String output = new String();
-    	output += "{" + hmin + ", " + hist[0] + "} ";
-    	
-    	int interval = (hmax-hmin+1) % hbuckets;
+    	output += "{" + ((double) hmin) + ", " + hist[0] + "} ";
         
         for (int i=1; i < hist.length; i++) {
-        	output += "{" + (hmin + i*interval) + ", " + hist[i] + "} ";
+        	output += "{" + thresh[i] + ", " + hist[i] + "} ";
         }
     	
     	return output;

@@ -218,9 +218,14 @@ public class IntHistogramTest {
         h.addValue(3);
         h.addValue(10);
 
+        System.out.println(h.toString());
+        System.out.println("1");
         Assert.assertEquals(3.0/4.0 * 0.5, h.estimateSelectivity(Op.EQUALS, 3), TOLERANCE);
+        System.out.println("2");
         Assert.assertEquals(3.0/4.0 * 0.5, h.estimateSelectivity(Op.EQUALS, 4), TOLERANCE);
+        System.out.println("3");
         Assert.assertEquals(1.0/4.0 * 0.5, h.estimateSelectivity(Op.EQUALS, 9), TOLERANCE);
+        System.out.println("4");
         Assert.assertEquals(1.0/4.0 * 0.5, h.estimateSelectivity(Op.EQUALS, 10), TOLERANCE);
     }
 
