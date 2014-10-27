@@ -184,11 +184,15 @@ public class TableStats {
     }
     
     private void populateDistinctvals(DbFileIterator tupit) {
+    	if (maxvals == null) {
+    		throw new RuntimeException("you haven't called populateMinMaxNumtups yet dummy!");
+    	}
+    	
     	// initialize the distinctvals array
-    	distinctvals = new int[hists.length];
+    	distinctvals = new int[maxvals.length];
     	
     	// create a temporary array of hashsets
-    	Object[] tempmap = new Object[hists.length];
+    	Object[] tempmap = new Object[distinctvals.length];
     	
     	for (int i=0; i < tempmap.length; i++) {
     		if (hists[i] instanceof IntHistogram) {
