@@ -98,7 +98,7 @@ public class IntHistogram {
      */
     private double getBucketSlice(int v) {
     	int bucketnum = whichBucket(v);
-    	System.out.println("w="+getWidth(bucketnum));
+    	//System.out.println("w="+getWidth(bucketnum));
     	return hist[bucketnum]/getWidth(bucketnum);
     }
     
@@ -156,9 +156,9 @@ public class IntHistogram {
 	    	slice = getBucketSlice(v);
 	    	lowercount = getLowerCount(v);
 	    	
-	    	System.out.println("lowercount = " + lowercount);
-	    	System.out.println("slice = " + slice);
-	    	System.out.println("total = " + htotal);
+	    	//System.out.println("lowercount = " + lowercount);
+	    	//System.out.println("slice = " + slice);
+	    	//System.out.println("total = " + htotal);
     	}
     	
     	if (op.equals(Predicate.Op.EQUALS)) {
@@ -203,7 +203,7 @@ public class IntHistogram {
 	    	fcount -= slice;
 	    }
     	
-    	System.out.println("selectivity = " + fcount/htotal);
+    	//System.out.println("selectivity = " + fcount/htotal);
     	return fcount / htotal;
     }
 
