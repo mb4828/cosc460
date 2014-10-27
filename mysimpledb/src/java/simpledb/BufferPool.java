@@ -267,6 +267,9 @@ public class BufferPool {
     	if (p == null)
     		return;											// page wasn't in buffer pool so our work is done
     	
+    	if (p.isDirty() == null)
+    		return;											// page isn't dirty... we are done
+    	
     	dbf.writePage(p);									// write page to disk
     	p.markDirty(false, null);							// set page as not dirty
     }
