@@ -62,6 +62,10 @@ public class Tuple implements Serializable {
     	if (i<0 || i >= this.flist.length)
     		throw new NoSuchElementException(i+" is not a valid index");
     	
+    	if (!td.getFieldType(i).equals(f.getType())) {
+    		throw new IllegalArgumentException("field must be of type " + td.getFieldType(i).toString());
+    	}
+    	
     	this.flist[i] = f;
     	
     	
