@@ -29,54 +29,70 @@ public class HeapFile implements DbFile {
         
         // tuple info
         private Iterator<Tuple> tupit;
+        private Tuple nexttup;
     	
         public dbIterator() throws TransactionAbortedException, DbException {
         	loadNextPage();
         }
         
         public void open() {
-        	this.closed = false;
+        	closed = false;
         }
         
         public void close() {
-        	this.closed = true;
+        	closed = true;
         }
 
         private void loadNextPage() throws TransactionAbortedException, DbException {
-        	this.current_pid = new HeapPageId(this.tableId, this.nextpg);
-            this.current_page = (HeapPage) this.bp.getPage(null, this.current_pid, null);
-            this.tupit = this.current_page.iterator();
+        	current_pid = new HeapPageId(this.tableId, this.nextpg);
+            current_page = (HeapPage) this.bp.getPage(null, this.current_pid, null);
+            tupit = current_page.iterator();
+            nexttup = null;
             nextpg++;
         }
         
-        public boolean hasNext() throws DbException {
+        public boolean hasNext() throws TransactionAbortedException, DbException {
         	if (this.closed)
         		return false;
         	
         	//System.out.println("tupithn: "+tupit.hasNext()+", nextpg: "+nextpg+", numpgs: "+numpages);
-            if (this.tupit.hasNext() || (this.nextpg < this.numpages))
-            	return true;
-            return false;
+        	
+        	// do we still have tuples on this page?
+        	if (nexttup != null) {
+        		return true;
+        		
+        	} else if (tupit.hasNext()) {
+        		nexttup = tupit.next();
+        		return true;
+        		
+        	} else {
+        		// do we still have pages left?
+        		if (nextpg < numpages) {
+        			loadNextPage();
+        			return hasNext();
+        			
+        		} else {
+        			return false;	// out of tuples and out of pages
+        		}
+        		
+        	}
         }
 
         public Tuple next() throws TransactionAbortedException, DbException {
-        	if (this.closed)
+        	if (closed)
         		throw new NoSuchElementException("The iterator is closed");
             if (!hasNext())
                 throw new NoSuchElementException();
             
-            if (this.tupit.hasNext()) {						// request the next tuple from the iterator
-            	return this.tupit.next();
-            } else {										// request the next page, first tuple
-            	loadNextPage();
-            	return this.tupit.next();
-            }
+            Tuple temp = nexttup;
+            nexttup = null;
+            return temp;
         }
 
         public void rewind() throws TransactionAbortedException, DbException {
-        	if (this.closed)
+        	if (closed)
         		throw new DbException("The iterator is closed");
-        	this.nextpg = 0;
+        	nextpg = 0;
         	loadNextPage();
         }
     }
