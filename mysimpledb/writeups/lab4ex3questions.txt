@@ -4,12 +4,16 @@ Questions
 Answer these questions.  With each question is a hint as to which part of the code walk you might consult to find the answer.
 
 (Walk thru 1) How many instances of the TableStats class are created?
+	1
 
-(Walk thru 4) In class, we said a logical plan is a relational algebra tree.  That's not how it's represented in SimpleDB.  How is it represented? 
+(Walk thru 4) In class, we said a logical plan is a relational algebra tree.  That's not how it's represented in SimpleDB.  How is it represented?
+	A LogicalPlan object containing a representation of the tree using other data structures, methods, and instance variables including hash maps and vectors.
 
 (Walk thru 5) The physicalPlan is a relational algebra tree.  Describe the basic shape of this tree in terms of which ops go where.
+	The physical plan is a vector (scalable array) of logicaljoinnodes (joins). The joins are done first; project, aggregations, group by, and order by are done after. Selections are included in the logicaljoinnodes and will thus be done as part of the join (pipelining).
 
 (Walk thru 5) Suppose a query applies multiple filters to a single table.  For example, the query described in the lab write up filters on both actor first and last name.  In such cases, how is the selectivity estimated?  
+	TableStats.estimateSelectivity is called on each filter individually and the values are multiplied together and written to filterSelectivities.
 
 (Walk thru 5) Explain the meaning of this if statement.  Why should the subplanMap have size 0 or 1 at this point?
 
@@ -17,9 +21,16 @@ Answer these questions.  With each question is a hint as to which part of the co
         throw new ParsingException("Query does not include join expressions joining all nodes!");
     }
 
+	The subplan map holds iterators for the different relations in the table yet to be joined. At this point in the code, all of the iterators that are going to be joined should have been removed from the subplan map (all pairs of iterators). If there is more than one iterator left, then there is a join that hasn't been performed.
+
 (Walk thru 7) What does computeCostAndCardOfSubplan do when the joinSet contains only a single join, the joinToRemove?
+	I assume this function is going to work using the method of calculating join and cardinality we discussed in class. Since joins will be built up one size-of-join at a time, the joinToRemove will contain the aggregated values for several previous joins or just a relation. Thus we only need to remove "one" join, which is really built up from previous joins lower in the tree.
 
 (Walk thru 9) Suppose we are considering a join between a table A and the result of a join between B and C.  Assume table A is the outer relation in the join.  What is the cost estimate?  Your expression should be in terms of the sizes (# pages, # tuples) of the base relations A, B, C.
+	We are using nested loops join in simlpledb. Therefore:
+	cost = [N_A + n_A (N_B-join-C)] + [N_B + n_B (N_C)]
 
 (Walk thru 10) In lab 3, you write Join and Filter operators.  Both of these support the DbIterator interface.  When/where are these iterators called?
-
+	Join: object created in joinOptimizer.instantiateJoin.
+	Filter: object created in logicalPlan.physicalPlan.
+	I think that all of the code in logical plan and join optimizer simply pipelines together the different ops without actually running them. The iterators aren't opened until query.start is called, at which point the operators are pipelined through and printed in query.execute.
