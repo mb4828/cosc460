@@ -10,20 +10,55 @@ and a.fname='Ginger' and a.lname='Rogers';
 
 Query 1 optimizer's plan:
 
-<fill in here>
+                                                 π(d.fname,d.lname),card:1
+                                                 |
+                                                 ⨝(m.did=d.id),card:1
+                              ___________________|____________________
+                              |                                      |
+                              ⨝(c.mid=m.mid),card:1                  |
+                ______________|_______________                       |
+                |                            |                       |
+                ⨝(a.id=c.pid),card:1         |                       |
+  ______________|______________              |                       |
+  |                           |              |                       |
+  σ(a.lname=Rogers),card:1    |              |                       |
+  |                           |              |                       |
+  σ(a.fname=Ginger),card:1    |              |                       |
+  |                           |            scan(Movie_Director m)    |
+scan(Actor a)               scan(Casts c)                          scan(Director d)
+
 
 Query 1 plan explanation:
 
-<fill in here>
+The optimizer selects the name "Ginger Rogers" from A, joins it with C to get access to mid, then joins that with
+M to gain access to did, then joins with D to find all the directors that directed Ginger Rogers. It does this
+because it has calculated that this sequence of joins has the lowest cost. It seems extremely logical to do it
+this way because after selecting "Ginger Rogers" from the A table, the outer loop of the join will only have one
+tuple in it making this efficient both in terms of memory usage and time.
 
 Query 2:
 
-<fill in here>
+select a.fname, a.lname, c.role                                      
+from Actor a, Movie m, Casts c                                       
+where m.name='Sherlock Holmes Returns' and m.id=c.mid and c.pid=a.id;
 
-Query 1 optimizer's plan:
+Query 2 optimizer's plan:
 
-<fill in here>
+                                          π(a.fname,a.lname,c.role),card:12
+                                          |
+                                          ⨝(c.pid=a.id),card:12
+                        __________________|___________________
+                        |                                    |
+                        ⨝(m.id=c.mid),card:12                |
+  ______________________|______________________              |
+  |                                           |              |
+  σ(m.name=Sherlock Holmes Returns),card:1    |              |
+  |                                           |            scan(Actor a)
+scan(Movie m)                               scan(Casts c)
 
-Query 1 plan explanation:
+Query 2 plan explanation:
 
-<fill in here>
+I queried the database for a movie named "Sherlock Holmes Returns" and asked for the names of all of the actors in
+that film and the role that they played. The optimizer chose to select the film name from the movie table first,
+join that with casts, join that with actor, and then project the results. Again, this demonstrates that the fastest
+solution has the smallest set of tuples possible on the outer loop of the join. 

@@ -110,11 +110,7 @@ public class JoinOptimizer {
             // You do not need to implement proper support for these for Lab 4.
             return card1 + cost1 + cost2;
         } else {
-            // Insert your code here.
-            // HINT: You may need to use the variable "j" if you implemented
-            // a join algorithm that's more complicated than a basic
-            // nested-loops join.
-            return -1.0;
+            return cost1 + card1 * cost2;
         }
     }
 
@@ -152,8 +148,44 @@ public class JoinOptimizer {
                                                    String field2PureName, int card1, int card2, boolean t1pkey,
                                                    boolean t2pkey, Map<String, TableStats> stats,
                                                    Map<String, Integer> tableAliasToId) {
-        int card = 1;
-        // some code goes here
+        int card;
+        int dva = card1;
+        int dvb = card2;
+        
+        if (!t1pkey) {
+        	// a is not a primary key so we need to do further work to get distinct # of values of a
+        	if (tableAliasToId.containsKey(table1Alias)) {
+        		int tableid1 = tableAliasToId.get(table1Alias);
+        		int field1 = Database.getCatalog().getDatabaseFile(tableid1).getTupleDesc().fieldNameToIndex(field1PureName);
+        		String tname1 = Database.getCatalog().getTableName(tableid1);
+        		
+        		dva = stats.get(tname1).numDistinctValues(field1);
+        		
+        	} else {
+        		throw new NoSuchElementException(table1Alias + " missing from tableAliasToId map");
+        	}
+        }
+        
+        if (!t2pkey) {
+        	// b is not a primary key so we need to do further work to get distinct # of values of b
+        	if (tableAliasToId.containsKey(table2Alias)) {
+        		int tableid2 = tableAliasToId.get(table2Alias);
+        		int field2 = Database.getCatalog().getDatabaseFile(tableid2).getTupleDesc().fieldNameToIndex(field2PureName);
+        		String tname2 = Database.getCatalog().getTableName(tableid2);
+        		
+        		dvb = stats.get(tname2).numDistinctValues(field2);
+        		
+        	} else {
+        		throw new NoSuchElementException(table1Alias + " missing from tableAliasToId map");
+        	}
+        }
+        
+        if (joinOp.equals(Predicate.Op.EQUALS)) {
+        	card = card1 * card2 / Math.max(dva, dvb);
+        } else {
+        	card = (int) (card1 * card2 * 0.7);
+        }
+        
         return card <= 0 ? 1 : card;
     }
 
@@ -209,12 +241,72 @@ public class JoinOptimizer {
             HashMap<String, Double> filterSelectivities, boolean explain)
             throws ParsingException {
 
-        // See the Lab 4 writeup for some hints as to how this function
-        // should work.
+        Vector<LogicalJoinNode> j = new Vector<LogicalJoinNode>();
+        PlanCache pc = new PlanCache();
+        
+        for (int i=1; i<=joins.size(); i++) {
+        	Set<Set<LogicalJoinNode>> x = enumerateSubsets(joins, i);
+        	
+        	for (Set <LogicalJoinNode> s: x) {
+        		Double bestplan = Double.POSITIVE_INFINITY;
+        		
+        		for (LogicalJoinNode s1: s) {
+        			CostCard c;
+        			
+        			if (i==1) {
+        				c = computeCostAndCardOfSubplan(stats, filterSelectivities, s1, s, Double.POSITIVE_INFINITY, pc);
+        				
+        				if (c != null) {
+        					pc.addPlan(s, c.cost, c.card, c.plan);
+        				} else {
+        					throw new RuntimeException("CostCard should not be null when i=1");
+        				}
+        			} else {
+        				c = computeCostAndCardOfSubplan(stats, filterSelectivities, s1, s, bestplan, pc);
+        				
+        				if (c == null) {
+        					continue;
+        				}
+        				
+        				if (c.cost < bestplan) {
+        					bestplan = c.cost;
+        					pc.addPlan(s, c.cost, c.card, c.plan);
+        				}
+        			}
+        		}
+        		
+        		if (i==joins.size()) {
+        			joins = pc.getOrder(s);
+        		}
+        	}
+        }
 
-        // some code goes here
-        //Replace the following
+        if (explain) {
+        	printJoins(joins, pc, stats, filterSelectivities);
+        }
+        
         return joins;
+        
+        
+        
+        /*for (int i=1; i<joins.size(); i++) {
+        	Iterator<Set<LogicalJoinNode>> sIt = enumerateSubsets(joins, i).iterator();
+        	
+        	while(sIt.hasNext()) {
+        		Set<LogicalJoinNode> s = (Set<LogicalJoinNode>) sIt.next();
+        		Iterator<LogicalJoinNode> sprime = s.iterator();
+        		double bestsofar = 10000000;
+        		
+        		while(sprime.hasNext()) {
+        			//computecostandcardinality jointoremove=lastjoin
+        			LogicalJoinNode joinToRemove = sprime.next();
+        			CostCard lastjoin = computeCostAndCardOfSubplan(stats, filterSelectivities, joinToRemove, s, bestsofar, pc);
+        			// returns a cost card - plan = best plan so far
+        			// check if it's the best plan and if so add to plancache
+        		}
+        		
+        	}
+        }*/
     }
 
     // ===================== Private Methods =================================
