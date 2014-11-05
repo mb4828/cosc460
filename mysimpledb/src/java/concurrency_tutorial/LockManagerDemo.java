@@ -77,7 +77,22 @@ public class LockManagerDemo {
 
         public void acquireLock() {
             boolean waiting = true;
-            while (waiting) {
+            
+            while (true) {
+            	synchronized (this) {
+            		if (!inUse) {
+            			inUse = true;
+            			break;
+            		} else {
+            			try {
+            				wait();
+            			} catch (InterruptedException e) {}
+            		}
+            	}
+            }
+            
+            /*
+             while (waiting) {
                 synchronized (this) {
                     // check if lock is available
                     if (!inUse) {
@@ -92,10 +107,12 @@ public class LockManagerDemo {
                     } catch (InterruptedException ignored) { }
                 }
             }
+            */
         }
 
         public synchronized void releaseLock() {
             inUse = false;
+            notifyAll();
         }
     }
 }

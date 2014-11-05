@@ -46,7 +46,9 @@ public class SynchronizedThreads {
         public void run() {
             // increment the counter numIncrements times
             for (int i = 0; i < numIncrements; i++) {
-                counter.increment(name);
+            	synchronized(this) {
+            		counter.increment(name);
+            	}
             }
         }
     }

@@ -2,17 +2,37 @@ Your name(s):
 
 1. Explain how you modified SynchronizedThreads in exercise 1.
 
+	I chose to modify the counter class. I just added the "synchronized" keyword to increment.
+
 2. Briefly describe (1-2 sentences) an alternate implementation for exercise 1.
+
+	To do the same thing while modifying only Incrementer, you just need to put a synchronized statement around counter.increment(name);
 
 3. Exercise 2: Explain the deadlock that happens in Deadlock in terms of locks and threads waiting on locks. The two threads in this case are alphonse and gaston. 
 
 a) What objects are being locked? 
 
+	Each thread is being locked with its own lock.
+
 b) Who has what locks? 
+
+	Each thread holds its own lock.
 
 c) How does deadlock occur?
 
+	The threads both execute the bow method in their instance of the friend object then try to call bowBack on
+	the opposing thread's object. The problem is that each thread currently holds its own lock but is waiting
+	for the opposing thread to release its lock. Since both threads are waiting, neither will release the lock
+	and bowBack will never get executed.
+
 4. Return to exercise 1, can deadlock occur here?  Explain why or why not.
+
+	No. There is only one lock, and thus only one thread at a time will be able to access and update count.
+	Deadlock will only happen if two or more threads hold locks that the opposing threads require to continue.
 
 5. Explain why acquireLock uses a synchronized statement inside the body of the method. In other words, why not just make the acquireLock method synchronized, just like releaseLock? Will this work? Why or why not?
 	
+	No that won't work. AcquireLock needs to be accessible to more than one thread so that they can figure out
+	whether they have the lock or need to spin (the spin is included in the method and more than one thread
+	can be spinning at a time). The only section of the code that needs to be mutually exclusive
+	is figuring out if the lock is available (so two threads can't accidentally grab the lock at the same time).
