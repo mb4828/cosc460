@@ -17,6 +17,9 @@ import java.util.concurrent.ConcurrentLinkedDeque;
  * @Threadsafe, all fields are final
  */
 public class BufferPool {
+    private static LockManager lm;
+    public static LockManager getLockManager() { return lm; }
+	
     /**
      * Bytes per page, including header.
      */
@@ -56,10 +59,12 @@ public class BufferPool {
      *
      * @param numPages maximum number of pages in this buffer pool.
      */
+    
     public BufferPool(int numPages) {
         bpool = new ConcurrentHashMap<PageId, Page>(numPages);
         bqueue = new ConcurrentLinkedDeque<PageId>();
         maxsize = numPages;
+        lm = new LockManager();
     }
 
     public static int getPageSize() {
@@ -89,23 +94,27 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException {
     	
-        if (bpool.containsKey(pid))	{							// check if page is already in the buffer pool
-        	bqueue.remove(pid);									// update LRU queue to show that page is MRU
-        	bqueue.addFirst(pid);								// pid gets added to the HEAD of the queue
-        	return bpool.get(pid);								// return the page
-        }
-        
-        Catalog cat = Database.getCatalog();					// page is not in the buffer pool
-        DbFile db = cat.getDatabaseFile(pid.getTableId());		// retrieve the DbFile from catalog
-        Page pg = db.readPage(pid);								// read the required page from memory
-        
-        if (bpool.size() >= this.maxsize) {						// check if there is room in the buffer pool
-        	evictPage();										// buffer pool is full, so evict LRU page
-        }
-        
-        bpool.put(pid, pg);										// put the newly retrieved page in the buffer pool
-        bqueue.addFirst(pid);									// add the pid to the LRU queue
-        return pg;												// return the page to the caller
+    	BufferPool.getLockManager().lockRequest(tid, pid, 'x'); 	// acquire lock on page
+    	
+    	synchronized (this) {
+	        if (bpool.containsKey(pid))	{							// check if page is already in the buffer pool
+	        	bqueue.remove(pid);									// update LRU queue to show that page is MRU
+	        	bqueue.addFirst(pid);								// pid gets added to the HEAD of the queue
+	        	return bpool.get(pid);								// return the page
+	        }
+	        
+	        Catalog cat = Database.getCatalog();					// page is not in the buffer pool
+	        DbFile db = cat.getDatabaseFile(pid.getTableId());		// retrieve the DbFile from catalog
+	        Page pg = db.readPage(pid);								// read the required page from memory
+	        
+	        if (bpool.size() >= this.maxsize) {						// check if there is room in the buffer pool
+	        	evictPage();										// buffer pool is full, so evict LRU page
+	        }
+	        
+	        bpool.put(pid, pg);										// put the newly retrieved page in the buffer pool
+	        bqueue.addFirst(pid);									// add the pid to the LRU queue
+	        return pg;												// return the page to the caller
+    	}
     }
     
     /**
@@ -118,8 +127,7 @@ public class BufferPool {
      * @param pid the ID of the page to unlock
      */
     public void releasePage(TransactionId tid, PageId pid) {
-        // some code goes here
-        // not necessary for lab1|lab2|lab3|lab4                                                         // cosc460
+        BufferPool.getLockManager().lockRelease(tid, pid);
     }
 
     /**
@@ -136,9 +144,7 @@ public class BufferPool {
      * Return true if the specified transaction has a lock on the specified page
      */
     public boolean holdsLock(TransactionId tid, PageId p) {
-        // some code goes here
-        // not necessary for lab1|lab2|lab3|lab4                                                         // cosc460
-        return false;
+        return BufferPool.getLockManager().hasLock(tid, p);
     }
 
     /**
