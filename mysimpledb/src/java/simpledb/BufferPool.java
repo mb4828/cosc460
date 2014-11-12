@@ -94,7 +94,7 @@ public class BufferPool {
     public Page getPage(TransactionId tid, PageId pid, Permissions perm)
             throws TransactionAbortedException, DbException {
     	
-    	BufferPool.getLockManager().lockRequest(tid, pid, 'x'); 	// acquire lock on page
+    	BufferPool.getLockManager().lockRequest(tid, pid, perm); 	// acquire lock on page
     	
     	synchronized (this) {
 	        if (bpool.containsKey(pid))	{							// check if page is already in the buffer pool
@@ -156,8 +156,11 @@ public class BufferPool {
      */
     public void transactionComplete(TransactionId tid, boolean commit)
             throws IOException {
-        // some code goes here
-        // not necessary for lab1|lab2|lab3|lab4                                                         // cosc460
+    	if (commit) {
+    		BufferPool.getLockManager().transactionCommit(tid);
+    	} else {
+    		BufferPool.getLockManager().transactionAbort(tid);
+    	}
     }
 
     /**
