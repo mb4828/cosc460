@@ -45,7 +45,7 @@ public class HeapFile implements DbFile {
 
         private void loadNextPage() throws TransactionAbortedException, DbException {
         	current_pid = new HeapPageId(this.tableId, this.nextpg);
-            current_page = (HeapPage) this.bp.getPage(null, this.current_pid, null);
+            current_page = (HeapPage) this.bp.getPage(null, this.current_pid, Permissions.READ_ONLY);
             tupit = current_page.iterator();
             nexttup = null;
             nextpg++;
@@ -143,7 +143,7 @@ public class HeapFile implements DbFile {
     }
 
     // see DbFile.java for javadocs
-    public Page readPage(PageId pid) {
+    public synchronized Page readPage(PageId pid) {
         if (pid.pageNumber() < 0 || pid.pageNumber() > this.numPages())
         	throw new NoSuchElementException("page "+pid.pageNumber()+" is out of bounds");
         
@@ -169,7 +169,7 @@ public class HeapFile implements DbFile {
     }
 
     // see DbFile.java for javadocs
-    public void writePage(Page page) throws IOException {
+    public synchronized void writePage(Page page) throws IOException {
     	RandomAccessFile out = new RandomAccessFile(this.hf, "rw");
     	byte[] data = ((HeapPage) page).getPageData();
     	int page_offset = page.getId().pageNumber()*BufferPool.getPageSize();
@@ -205,14 +205,18 @@ public class HeapFile implements DbFile {
         int i=0;
         for (; i<numpages; i++) {							// iterate through the pages in the heapfile
         	pid = new HeapPageId(tableid, i);
-        	p = (HeapPage) bp.getPage(tid, pid, null);
+        	p = (HeapPage) bp.getPage(tid, pid, Permissions.READ_WRITE);
         	
-        	if (p.getNumEmptySlots() > 0)					// does the page have a free slot?
+        	if (p.getNumEmptySlots() > 0) {					// does the page have a free slot?
         		break;
+        	} else {
+        		bp.releasePage(tid, p.getId());				// release page we didn't touch
+        	}
         }
         
         if (i<numpages) {									// we found an empty slot on a pre-existing page
         	p.insertTuple(t);
+        	p.markDirty(true, tid);
         	//System.out.println("inserted tuple on page "+pid.pageNumber() + ", " + p.getNumEmptySlots() + " slots left");
         } else {											// no free slots; need to create a new page
         	pid = new HeapPageId(tableid, i);
@@ -220,7 +224,9 @@ public class HeapFile implements DbFile {
         	p.insertTuple(t);
         	
         	writePage(p);									// write the page to the heapfile
-        	p = (HeapPage) bp.getPage(tid, pid, null);		// call getpage to load the page into the buffer
+        	p = (HeapPage) bp.getPage(tid, pid, Permissions.READ_WRITE);		// call getpage to load the page into the buffer
+        	p.markDirty(true, tid);
+        	
         	//System.out.println("inserted tuple on a NEW PAGE");
         }
         
@@ -235,9 +241,10 @@ public class HeapFile implements DbFile {
         
         PageId pid = t.getRecordId().getPageId();
         BufferPool bp = Database.getBufferPool();
-        HeapPage p = (HeapPage) bp.getPage(tid, pid, null);
+        HeapPage p = (HeapPage) bp.getPage(tid, pid, Permissions.READ_WRITE);
 
 		p.deleteTuple(t);
+		p.markDirty(true, tid);
         
         output.add(p);
         return output;

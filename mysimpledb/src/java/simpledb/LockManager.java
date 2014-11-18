@@ -77,6 +77,11 @@ public class LockManager {
 		
 		if (debug) { System.out.println("tid " + tid.toString() + ": requested lock for " + pid.toString()); }
 		
+		// double check permissions in case I screwed up
+		if (!(perm.equals(Permissions.READ_ONLY) || perm.equals(Permissions.READ_WRITE))) {
+			throw new RuntimeException("make sure permissions are either READ_ONLY or READ_WRITE");
+		}
+		
 		boolean waiting = true;
 		
 		while (waiting) {
@@ -186,11 +191,11 @@ public class LockManager {
 		return false;
 	}
 	
-	public void transactionCommit(TransactionId tid) {
+	public synchronized void transactionCommit(TransactionId tid) {
 		throw new UnsupportedOperationException();
 	}
 	
-	public void transactionAbort(TransactionId tid) {
+	public synchronized void transactionAbort(TransactionId tid) {
 		throw new UnsupportedOperationException();
 	}
 	

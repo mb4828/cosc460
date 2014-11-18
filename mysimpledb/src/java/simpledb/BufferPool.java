@@ -296,16 +296,29 @@ public class BufferPool {
      * Flushes the page to disk to ensure dirty pages are updated on disk.
      */
     private synchronized void evictPage() throws DbException {
-        PageId pid = bqueue.removeLast();			// in my implementation, the LRU page is at the tail
-        
-        try {
-			flushPage(pid);							// flush the page to disk
-		} catch (IOException e) {
-			throw new DbException("DbException thrown");
-		}
-        
-        if (bpool.remove(pid) == null)				// remove it from the buffer pool
-        	throw new DbException("failed to evict page");
+    	Iterator<PageId> qit= bqueue.descendingIterator();		// in my implementation, the LRU page is at the tail
+    	PageId pid = null;
+    	
+    	while (qit.hasNext()) {									// find the LRU page that is not dirty
+    		pid = qit.next();
+    		
+    		if (bpool.get(pid).isDirty() == null) {
+    			break;											// the page isn't dirty so we're done
+    		}
+    	}
+    	
+    	if (pid == null) {										// throw an exception if all pages are dirty
+    		throw new DbException("all pages in buffer pool are dirty!");
+    	}
+    	
+    	try {													// flush the page
+    		flushPage(pid);
+    	} catch (IOException e) {
+    		throw new DbException("could not flush page");
+    	}
+    	
+    	bqueue.remove(pid);										// remove it from the LRU queue and buffer pool
+    	bpool.remove(pid);
     }
 
 }
