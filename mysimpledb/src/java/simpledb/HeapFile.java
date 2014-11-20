@@ -26,12 +26,14 @@ public class HeapFile implements DbFile {
     	private int nextpg = 0;
     	private PageId current_pid;
         private HeapPage current_page;
+        private TransactionId tid;
         
         // tuple info
         private Iterator<Tuple> tupit;
         private Tuple nexttup;
     	
-        public dbIterator() throws TransactionAbortedException, DbException {
+        public dbIterator(TransactionId tid) {
+        	this.tid = tid;
         	loadNextPage();
         }
         
@@ -43,15 +45,23 @@ public class HeapFile implements DbFile {
         	closed = true;
         }
 
-        private void loadNextPage() throws TransactionAbortedException, DbException {
+        private void loadNextPage() {
         	current_pid = new HeapPageId(this.tableId, this.nextpg);
-            current_page = (HeapPage) this.bp.getPage(null, this.current_pid, Permissions.READ_ONLY);
+        	
+        	try {
+        		current_page = (HeapPage) this.bp.getPage(tid, this.current_pid, Permissions.READ_ONLY);
+        	} catch (TransactionAbortedException e) {
+        		throw new RuntimeException("uh oh; this should never happen!");
+        	} catch (DbException e) {
+        		throw new RuntimeException("uh oh; this should never happen!");
+        	}
+        	
             tupit = current_page.iterator();
             nexttup = null;
             nextpg++;
         }
         
-        public boolean hasNext() throws TransactionAbortedException, DbException {
+        public boolean hasNext() {
         	if (this.closed)
         		return false;
         	
@@ -204,28 +214,33 @@ public class HeapFile implements DbFile {
         
         int i=0;
         for (; i<numpages; i++) {							// iterate through the pages in the heapfile
+        	boolean donotrelease = false;
         	pid = new HeapPageId(tableid, i);
+        	
+        	if (bp.holdsLock(tid, pid)) {
+        		donotrelease = true;
+        	}
+        	
         	p = (HeapPage) bp.getPage(tid, pid, Permissions.READ_WRITE);
         	
         	if (p.getNumEmptySlots() > 0) {					// does the page have a free slot?
         		break;
-        	} else {
-        		bp.releasePage(tid, p.getId());				// release page we didn't touch
         	}
+        	
+        	if (!donotrelease) {
+    			bp.releasePage(tid, p.getId());				// release page we didn't touch
+    		}
         }
         
         if (i<numpages) {									// we found an empty slot on a pre-existing page
         	p.insertTuple(t);
-        	p.markDirty(true, tid);
         	//System.out.println("inserted tuple on page "+pid.pageNumber() + ", " + p.getNumEmptySlots() + " slots left");
         } else {											// no free slots; need to create a new page
         	pid = new HeapPageId(tableid, i);
         	p = new HeapPage((HeapPageId) pid, HeapPage.createEmptyPageData());
-        	p.insertTuple(t);
-        	
         	writePage(p);									// write the page to the heapfile
         	p = (HeapPage) bp.getPage(tid, pid, Permissions.READ_WRITE);		// call getpage to load the page into the buffer
-        	p.markDirty(true, tid);
+        	p.insertTuple(t);
         	
         	//System.out.println("inserted tuple on a NEW PAGE");
         }
@@ -252,13 +267,7 @@ public class HeapFile implements DbFile {
 
     // see DbFile.java for javadocs
     public DbFileIterator iterator(TransactionId tid) {
-        try {
-			return new dbIterator();
-        } catch (TransactionAbortedException e) {
-			throw new IllegalStateException("Could not create dbfileiterator");
-        } catch (DbException e) {
-        	throw new IllegalStateException("Could not create dbfileiterator");
-        }
+    	return new dbIterator(tid);
     }
 
 }

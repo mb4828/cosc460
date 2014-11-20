@@ -136,8 +136,7 @@ public class BufferPool {
      * @param tid the ID of the transaction requesting the unlock
      */
     public void transactionComplete(TransactionId tid) throws IOException {
-        // some code goes here
-        // not necessary for lab1|lab2|lab3|lab4                                                         // cosc460
+        transactionComplete(tid, true);
     }
 
     /**
@@ -154,12 +153,35 @@ public class BufferPool {
      * @param tid    the ID of the transaction requesting the unlock
      * @param commit a flag indicating whether we should commit or abort
      */
-    public void transactionComplete(TransactionId tid, boolean commit)
+    public synchronized void transactionComplete(TransactionId tid, boolean commit)
             throws IOException {
+    	
     	if (commit) {
+    		// get a list of pages we are holding and flush dirty pages to disk (aka. FORCE)
+    		PageId[] heldpages = BufferPool.getLockManager().getHolding(tid);
+    		
+    		if (heldpages != null) {
+	    		for (int i=0; i < heldpages.length; i++) {
+	    			flushPage(heldpages[i]);
+	    		}
+    		}
+    		
+    		// release all locks and close out this transaction
     		BufferPool.getLockManager().transactionCommit(tid);
+    		
     	} else {
+    		// get a list of the pages we are holding and revert any changes
+    		PageId[] heldpages = BufferPool.getLockManager().getHolding(tid);
+    		
+    		if (heldpages != null) {
+	    		for (int i=0; i < heldpages.length; i++) {
+	    			discardPage(heldpages[i]);
+	    		}
+    		}
+    		
+    		// release all locks and close out this transaction
     		BufferPool.getLockManager().transactionAbort(tid);
+    		
     	}
     }
 
@@ -260,8 +282,8 @@ public class BufferPool {
      * cache.
      */
     public synchronized void discardPage(PageId pid) {
-        // some code goes here
-        // only necessary for lab6                                                                            // cosc460
+        bqueue.remove(pid);
+        bpool.remove(pid);
     }
 
     /**
@@ -298,16 +320,18 @@ public class BufferPool {
     private synchronized void evictPage() throws DbException {
     	Iterator<PageId> qit= bqueue.descendingIterator();		// in my implementation, the LRU page is at the tail
     	PageId pid = null;
+    	boolean foundPage = false;
     	
     	while (qit.hasNext()) {									// find the LRU page that is not dirty
     		pid = qit.next();
     		
     		if (bpool.get(pid).isDirty() == null) {
-    			break;											// the page isn't dirty so we're done
+    			foundPage = true;								// the page isn't dirty so we're done
+    			break;
     		}
     	}
     	
-    	if (pid == null) {										// throw an exception if all pages are dirty
+    	if (!foundPage) {										// throw an exception if all pages are dirty
     		throw new DbException("all pages in buffer pool are dirty!");
     	}
     	

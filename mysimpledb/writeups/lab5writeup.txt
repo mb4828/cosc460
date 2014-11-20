@@ -1,42 +1,50 @@
-Report for Lab 3
+Report for Lab 5
 ----------------
 
 After you complete lab 5, please answer the following questions.
 
 1. What is your name?  If you work with a partner, be sure to write both of your names.
 
-	(Replace this text with your answer)
+	Matt Brauner
 
 2. What did you think of this assignment?
 
-	(Replace this text with your answer)
+	This one was actually kind of fun, although frustrating at times.
 
 3. What was the hardest part of this assignment?
 
-	(Replace this text with your answer)
+	Fixing bugs in every part of the code. Debugging concurrency problems is awful.
 
 4. Describe any missing or incomplete elements of your code.
 
-	(Replace this text with your answer)
+	None.
 
 5. Roughly how long did you spend working on this lab?
 
-	(Replace this text with your answer)
+	I cannot even fathom considering it's been 3 weeks.
 
 6. Describe your lock manager implementation.  Here are some specific questions to answer:
 
 a) Where is your lock manager located?  (I.e., is it a separate class, part of BufferPool, etc.)
 
-	(Replace this text with your answer)
+	LockManager.java
 
 b) What specific information do you store and how do you store it?  
 
-	(Replace this text with your answer)
+	I have two sub-classes in the lock manager: LockEntry and TransactionEntry. LockEntry stores information about a lock,
+	including who is holding it, who is queued to hold it, what type of lock it is (READ-ONLY/READ-WRITE), whether
+	the lock is free, and the page associated with the lock. TransactionEntry stores the locks a transaction holds,
+	the locks it is waiting for, the timeout time, and the transaction ID. Every transaction and lock going through
+	the lock manager gets an entry, which is stored in two concurrent hash maps.
 
 c) Briefly describe what happens when a new transaction requests a page.  I.e., walk thru how the lock manager decides whether or not to grant the request.  Your description should reference the data structures that describe in part (b).
 
-	(Replace this text with your answer)
+	The lock manager creates entries for the lock and transaction if they don't already exist. It then checks what type
+	of lock is being requested and grants accordingly through a decently complex series of logic that I don't want to
+	re-write. The lock and transaction objects are updated and stored back into their respective hash maps.
 
 d) Briefly explain how you manage locks when inserting a tuple into a HeapFile.  In particular, how do you acquire/release locks when looking for a page to insert.
 
-	(Replace this text with your answer)
+	insertTuple iterates through the pages in the heap file until it finds a page with a free slot or needs to create a
+	new page. I request a read-write lock on the page currently being examined right off the bat, but release the lock 
+	immediately if the page does not have a free slot and the transaction doesn't already hold the lock.
