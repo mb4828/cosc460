@@ -1,5 +1,6 @@
 package simpledb;
 import java.io.*;
+import java.util.NoSuchElementException;
 
 public class Lab2Main {
 
@@ -26,7 +27,16 @@ public class Lab2Main {
         // construct the query: we use a simple SeqScan, which spoonfeeds
         // tuples via its iterator.
         TransactionId tid = new TransactionId();
-        SeqScan f = new SeqScan(tid, table1.getId());
+        SeqScan f;
+		try {
+			f = new SeqScan(tid, table1.getId());
+		} catch (NoSuchElementException e1) {
+			throw new RuntimeException("something went wrong");
+		} catch (TransactionAbortedException e1) {
+			throw new RuntimeException("something went wrong");
+		} catch (DbException e1) {
+			throw new RuntimeException("something went wrong");
+		}
         
         Field testfield = (Field) new IntField(3);
         Predicate.Op testop = Predicate.Op.valueOf("LESS_THAN");

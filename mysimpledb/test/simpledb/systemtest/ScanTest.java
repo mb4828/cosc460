@@ -33,7 +33,16 @@ public class ScanTest extends SimpleDbTestBase {
         TupleDesc td = new TupleDesc(new Type[]{Type.INT_TYPE, Type.STRING_TYPE},
                 new String[]{fieldName0, fieldName1});
         Database.getCatalog().addTable(new TestUtil.SkeletonFile(-1, td), SystemTestUtil.getUUID());
-        SeqScan ss = new SeqScan(new TransactionId(), -1, alias);
+        SeqScan ss;
+		try {
+			ss = new SeqScan(new TransactionId(), -1, alias);
+		} catch (NoSuchElementException e) {
+			throw new RuntimeException("something went wrong");
+		} catch (TransactionAbortedException e) {
+			throw new RuntimeException("something went wrong");
+		} catch (DbException e) {
+			throw new RuntimeException("something went wrong");
+		}
         assertEquals(0, ss.getTupleDesc().fieldNameToIndex(alias + "." + fieldName0));
         assertEquals(1, ss.getTupleDesc().fieldNameToIndex(alias + "." + fieldName1));
     }

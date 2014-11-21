@@ -64,8 +64,10 @@ public interface DbFile {
      * {@link #readPage} to iterate through the pages.
      *
      * @return an iterator over all the tuples stored in this DbFile.
+     * @throws DbException 
+     * @throws TransactionAbortedException 
      */
-    public DbFileIterator iterator(TransactionId tid);
+    public DbFileIterator iterator(TransactionId tid) throws TransactionAbortedException, DbException;
 
     /**
      * Returns a unique ID used to identify this DbFile in the Catalog. This id

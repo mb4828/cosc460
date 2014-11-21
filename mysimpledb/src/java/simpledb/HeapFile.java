@@ -32,7 +32,7 @@ public class HeapFile implements DbFile {
         private Iterator<Tuple> tupit;
         private Tuple nexttup;
     	
-        public dbIterator(TransactionId tid) {
+        public dbIterator(TransactionId tid) throws TransactionAbortedException, DbException {
         	this.tid = tid;
         	loadNextPage();
         }
@@ -45,23 +45,15 @@ public class HeapFile implements DbFile {
         	closed = true;
         }
 
-        private void loadNextPage() {
+        private void loadNextPage() throws TransactionAbortedException, DbException {
         	current_pid = new HeapPageId(this.tableId, this.nextpg);
-        	
-        	try {
-        		current_page = (HeapPage) this.bp.getPage(tid, this.current_pid, Permissions.READ_ONLY);
-        	} catch (TransactionAbortedException e) {
-        		throw new RuntimeException("uh oh; this should never happen!");
-        	} catch (DbException e) {
-        		throw new RuntimeException("uh oh; this should never happen!");
-        	}
-        	
+        	current_page = (HeapPage) this.bp.getPage(tid, this.current_pid, Permissions.READ_ONLY);
             tupit = current_page.iterator();
             nexttup = null;
             nextpg++;
         }
         
-        public boolean hasNext() {
+        public boolean hasNext() throws TransactionAbortedException, DbException {
         	if (this.closed)
         		return false;
         	
@@ -266,7 +258,7 @@ public class HeapFile implements DbFile {
     }
 
     // see DbFile.java for javadocs
-    public DbFileIterator iterator(TransactionId tid) {
+    public DbFileIterator iterator(TransactionId tid) throws TransactionAbortedException, DbException {
     	return new dbIterator(tid);
     }
 

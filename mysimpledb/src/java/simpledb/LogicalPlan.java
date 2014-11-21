@@ -319,7 +319,13 @@ public class LogicalPlan {
             LogicalScanNode table = tableIt.next();
             SeqScan ss = null;
             try {
-                ss = new SeqScan(t, Database.getCatalog().getDatabaseFile(table.t).getId(), table.alias);
+                try {
+					ss = new SeqScan(t, Database.getCatalog().getDatabaseFile(table.t).getId(), table.alias);
+				} catch (TransactionAbortedException e) {
+					throw new RuntimeException("something went wrong");
+				} catch (DbException e) {
+					throw new RuntimeException("something went wrong");
+				}
             } catch (NoSuchElementException e) {
                 throw new ParsingException("Unknown table " + table.t);
             }

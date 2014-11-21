@@ -260,7 +260,16 @@ public class TableStats {
     	
     	// acquire an iterator over the DbFile for the table
     	TransactionId tid = new TransactionId();
-    	DbFileIterator tupit = Database.getCatalog().getDatabaseFile(tableid).iterator(tid);
+    	DbFileIterator tupit;
+		try {
+			tupit = Database.getCatalog().getDatabaseFile(tableid).iterator(tid);
+		} catch (NoSuchElementException e) {
+			throw new RuntimeException("something went wrong");
+		} catch (TransactionAbortedException e) {
+			throw new RuntimeException("something went wrong");
+		} catch (DbException e) {
+			throw new RuntimeException("something went wrong");
+		}
     	
     	// get the max, min, numtups
     	populateMaxMinNumtups(tupit, Database.getCatalog().getDatabaseFile(tableid).getTupleDesc().numFields());

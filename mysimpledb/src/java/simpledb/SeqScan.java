@@ -26,8 +26,11 @@ public class SeqScan implements DbIterator {
      *                   tableAlias or fieldName are null. It shouldn't crash if they
      *                   are, but the resulting name can be null.fieldName,
      *                   tableAlias.null, or null.null).
+     * @throws DbException 
+     * @throws TransactionAbortedException 
+     * @throws NoSuchElementException 
      */
-    public SeqScan(TransactionId tid, int tableid, String tableAlias) {
+    public SeqScan(TransactionId tid, int tableid, String tableAlias) throws NoSuchElementException, TransactionAbortedException, DbException {
         dbi = Database.getCatalog().getDatabaseFile(tableid).iterator(tid);
         this.tableid = tableid;
         this.tableAlias = tableAlias;
@@ -48,7 +51,7 @@ public class SeqScan implements DbIterator {
         return this.tableAlias;
     }
 
-    public SeqScan(TransactionId tid, int tableid) {
+    public SeqScan(TransactionId tid, int tableid) throws NoSuchElementException, TransactionAbortedException, DbException {
         this(tid, tableid, Database.getCatalog().getTableName(tableid));
     }
 
