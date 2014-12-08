@@ -93,9 +93,39 @@ class LogFileRecovery {
      * @throws java.io.IOException if tidToRollback has already committed
      */
     public void rollback(TransactionId tidToRollback) throws IOException {
-        readOnlyLog.seek(readOnlyLog.length()); // undoing so move to end of logfile
+    	Long initialOffset = readOnlyLog.getFilePointer();					// store initial offset so we can reset it later
 
-        // some code goes here
+    	long trollback = tidToRollback.getId();
+        readOnlyLog.seek(readOnlyLog.length() - LogFile.LONG_SIZE);			// find final offset record
+        
+        while (readOnlyLog.getFilePointer() >= LogFile.LONG_SIZE) {
+        	Long ptr = readOnlyLog.readLong();								// read the log entry's offset record
+        	readOnlyLog.seek(ptr);											// seek to beginning of log entry
+        	
+        	int type = readOnlyLog.readInt();								// read the type of this log entry
+        	long tid = readOnlyLog.readLong();								// read the tid of this log entry
+        	
+        	if (type == LogType.COMMIT_RECORD && trollback == tid) {
+        		throw new IOException("transaction has already committed!");
+        	}
+        	else if (type == LogType.UPDATE_RECORD && trollback == tid) {
+        		Page beforeImg = LogFile.readPageData(readOnlyLog);			// read beforeImg from log
+        		int tableid = beforeImg.getId().getTableId();
+        		
+        		HeapFile hf = (HeapFile) Database.getCatalog().getDatabaseFile(tableid);
+        		hf.writePage(beforeImg);									// write the beforeImg to the heapfile
+        		
+        		Database.getBufferPool().discardPage(beforeImg.getId());	// discard the page from the buffer pool
+        	}
+        	
+        	if ((ptr - LogFile.LONG_SIZE) >= 0) {
+        		readOnlyLog.seek(ptr - LogFile.LONG_SIZE); 					// seek to the previous log entry's offset record
+        	} else {
+        		break;														// we've reached the beginning of the log
+        	}
+        }
+        
+        readOnlyLog.seek(initialOffset);									// reset initial offset
     }
 
     /**

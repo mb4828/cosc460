@@ -13,7 +13,7 @@ public class LockManager {
 		private HashSet<PageId> waiting = new HashSet<PageId>();
 		private long endTime;
 		
-		static final long maxTime = 50;
+		static final long maxTime = 100;
 		
 		TransactionEntry(TransactionId tid) { 
 			this.tid = tid; 

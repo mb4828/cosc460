@@ -228,9 +228,11 @@ public class HeapFile implements DbFile {
         	p.insertTuple(t);
         	//System.out.println("inserted tuple on page "+pid.pageNumber() + ", " + p.getNumEmptySlots() + " slots left");
         } else {											// no free slots; need to create a new page
-        	pid = new HeapPageId(tableid, i);
-        	p = new HeapPage((HeapPageId) pid, HeapPage.createEmptyPageData());
-        	writePage(p);									// write the page to the heapfile
+        	synchronized (this) {
+	        	pid = new HeapPageId(tableid, i);
+	        	p = new HeapPage((HeapPageId) pid, HeapPage.createEmptyPageData());
+	        	writePage(p);									// write the page to the heapfile
+        	}
         	p = (HeapPage) bp.getPage(tid, pid, Permissions.READ_WRITE);		// call getpage to load the page into the buffer
         	p.insertTuple(t);
         	

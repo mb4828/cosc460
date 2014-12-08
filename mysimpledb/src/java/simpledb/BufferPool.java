@@ -162,7 +162,9 @@ public class BufferPool {
     		
     		if (heldpages != null) {
 	    		for (int i=0; i < heldpages.length; i++) {
+	    			HeapPage p = (HeapPage) bpool.get(heldpages[i]);
 	    			flushPage(heldpages[i]);
+	    			p.setBeforeImage();
 	    		}
     		}
     		
@@ -262,16 +264,16 @@ public class BufferPool {
     		pid = e.nextElement();
     	}
     	
-    	while (e != null) {
+    	while (pid != null) {
     		HeapPage p = (HeapPage) bpool.get(pid);				// retrieve page from buffer pool
     		
-    		if (p.isDirty() != null)							// check if page is dirty
-        		flushPage( ((PageId) p.getId()) );				// flush the page
+        	flushPage(((PageId) p.getId()));					// flush the page
     		
-    		if (e.hasMoreElements())							// get next pid
+    		if (e.hasMoreElements()) {							// get next pid
     			pid = e.nextElement();
-    		else
+    		} else {
     			break;
+    		}
     	}
     }
 
@@ -301,6 +303,12 @@ public class BufferPool {
     	if (p.isDirty() == null)
     		return;											// page isn't dirty... we are done
     	
+    	TransactionId dirtier = p.isDirty();				// update log
+        if (dirtier != null){
+        	Database.getLogFile().logWrite(dirtier, p.getBeforeImage(), p);
+        	Database.getLogFile().force();
+        }
+    	
     	dbf.writePage(p);									// write page to disk
     	p.markDirty(false, null);							// set page as not dirty
     }
@@ -309,8 +317,13 @@ public class BufferPool {
      * Write all pages of the specified transaction to disk.
      */
     public synchronized void flushPages(TransactionId tid) throws IOException {
-        // some code goes here
-        // not necessary for lab1|lab2|lab3|lab4                                                         // cosc460
+    	PageId[] heldpages = BufferPool.getLockManager().getHolding(tid);
+		
+		if (heldpages != null) {
+    		for (int i=0; i < heldpages.length; i++) {
+    			flushPage(heldpages[i]);
+    		}
+		}
     }
 
     /**
