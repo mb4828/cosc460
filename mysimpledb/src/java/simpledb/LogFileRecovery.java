@@ -3,6 +3,7 @@ package simpledb;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Set;
 
 /**
@@ -112,6 +113,8 @@ class LogFileRecovery {
         		Page beforeImg = LogFile.readPageData(readOnlyLog);			// read beforeImg from log
         		int tableid = beforeImg.getId().getTableId();
         		
+        		Database.getLogFile().logCLR(tid, beforeImg);				// write a CLR
+        		
         		HeapFile hf = (HeapFile) Database.getCatalog().getDatabaseFile(tableid);
         		hf.writePage(beforeImg);									// write the beforeImg to the heapfile
         		
@@ -125,6 +128,7 @@ class LogFileRecovery {
         	}
         }
         
+        Database.getLogFile().logAbort(trollback);
         readOnlyLog.seek(initialOffset);									// reset initial offset
     }
 
@@ -137,8 +141,172 @@ class LogFileRecovery {
      * the BufferPool are locked.
      */
     public void recover() throws IOException {
-
-        // some code goes here
-
+    	Long initialOffset = readOnlyLog.getFilePointer();
+    	HashSet<Long> losers = new HashSet<Long>();
+    	HashSet<Long> undone = new HashSet<Long>();
+    	print();
+    	
+    	// locate the last checkpoint if one exists
+    	boolean checkpointfound = false;
+    	Long ptr = (long) -1;
+    	readOnlyLog.seek(readOnlyLog.length() - LogFile.LONG_SIZE);
+    	
+    	while (readOnlyLog.getFilePointer() >= LogFile.LONG_SIZE) {
+    		ptr = readOnlyLog.readLong();
+    		readOnlyLog.seek(ptr);
+    		int type = readOnlyLog.readInt();
+    		
+    		if (type == LogType.CHECKPOINT_RECORD) {
+    			checkpointfound = true;
+    			break;
+    		}
+    		
+    		try { 
+    			readOnlyLog.seek(ptr - LogFile.LONG_SIZE); 
+    		} catch (IOException e) {
+    			break;
+    		}
+    	}
+    	
+    	// redo phase
+    	System.out.println("STARTING REDO");
+    	if (checkpointfound) {
+    		readOnlyLog.readLong();
+    		int count = readOnlyLog.readInt();
+            for (int i = 0; i < count; i++) {
+                long nextTid = readOnlyLog.readLong();
+                losers.add(nextTid);
+            }
+            readOnlyLog.readLong();		// skip start of record ptr
+            
+            //System.out.println("Checkpoint located with losers: " + losers);
+            
+    	} else {
+    		if (ptr == (long) -1) {
+    			throw new RuntimeException("log is missing");
+    		}
+    		readOnlyLog.seek(ptr);
+    	}
+    	
+    	while (readOnlyLog.getFilePointer() < readOnlyLog.length()) {
+    		int type = readOnlyLog.readInt();
+    		long tid = readOnlyLog.readLong();
+    		int tableid;
+    		HeapFile hf;
+    		
+    		switch (type) {
+	            case LogType.BEGIN_RECORD:
+	            	System.out.println("begin found " + tid);
+	                losers.add(tid);
+	                break;
+	            case LogType.COMMIT_RECORD:
+	            	System.out.println("commit found " + tid);
+	                losers.remove(tid);
+	                break;
+	            case LogType.ABORT_RECORD:
+	            	System.out.println("abort found " + tid);
+	            	losers.remove(tid);
+	                break;
+	            case LogType.UPDATE_RECORD:
+	            	System.out.println("update found " + tid);
+	                LogFile.readPageData(readOnlyLog);
+	                Page afterImg = LogFile.readPageData(readOnlyLog);
+	                
+	                tableid = afterImg.getId().getTableId();
+	                hf = (HeapFile) Database.getCatalog().getDatabaseFile(tableid);
+	                hf.writePage(afterImg);
+	                
+	                break;
+	            case LogType.CLR_RECORD:
+	            	System.out.println("CLR found");
+	                afterImg = LogFile.readPageData(readOnlyLog);
+	                
+	                tableid = afterImg.getId().getTableId();
+	                hf = (HeapFile) Database.getCatalog().getDatabaseFile(tableid);
+	                hf.writePage(afterImg);
+	                
+	                break;
+	            case LogType.CHECKPOINT_RECORD:
+	                throw new RuntimeException("Checkpoint record found - this should never happen!");
+	            default:
+	                throw new RuntimeException("Unexpected type!  Type = " + type);
+    		}
+    		readOnlyLog.readLong();   // skip start of record ptr
+    	}
+    	
+    	// undo phase
+    	System.out.println("STARTING UNDO with losers: " + losers);
+    	readOnlyLog.seek(readOnlyLog.length() - LogFile.LONG_SIZE);
+    	ptr = readOnlyLog.readLong();
+    	readOnlyLog.seek(ptr);
+    	
+    	while (!losers.isEmpty()) {
+    		int type = readOnlyLog.readInt();
+    		long tid = readOnlyLog.readLong();
+    		int tableid;
+    		HeapFile hf;
+    		
+    		switch (type) {
+	            case LogType.BEGIN_RECORD:
+	            	System.out.println("begin found");
+	                if (losers.contains(tid)) {
+	                	losers.remove(tid);
+	                	undone.add(tid);
+	                }
+	                break;
+	            case LogType.UPDATE_RECORD:
+	            	System.out.println("update found");
+	            	if (!losers.contains(tid)) {
+	            		LogFile.readPageData(readOnlyLog);
+	            		LogFile.readPageData(readOnlyLog);
+	            		break;
+	            	}
+	            	
+	                Page beforeImg = LogFile.readPageData(readOnlyLog);
+	                LogFile.readPageData(readOnlyLog);
+	                	                
+	                tableid = beforeImg.getId().getTableId();
+	                hf = (HeapFile) Database.getCatalog().getDatabaseFile(tableid);
+	                hf.writePage(beforeImg);
+	                
+	                Database.getLogFile().logCLR(tid, beforeImg);
+	                
+	                break;
+	            case LogType.CLR_RECORD:
+	                LogFile.readPageData(readOnlyLog);
+	                break;
+	            case LogType.CHECKPOINT_RECORD:
+	            	int count = readOnlyLog.readInt();
+	                for (int i = 0; i < count; i++) {
+	                    readOnlyLog.readLong();
+	                }
+	                break;
+	            default:
+	            	System.out.println("something else found: " + type);
+	            	break;
+    		}
+    		ptr = readOnlyLog.readLong();
+    		
+    		try { 
+    			readOnlyLog.seek(ptr - LogFile.LONG_SIZE); 
+    			ptr = readOnlyLog.readLong();
+    	    	readOnlyLog.seek(ptr);
+    		} catch (IOException e) {
+    			break;
+    		}
+    	}
+    	
+    	// create a CLR for every transaction in undone
+    	Iterator<Long> it = undone.iterator();
+    	
+    	while (it.hasNext()) {
+    		long tid = it.next();
+    		Database.getLogFile().logAbort(tid);
+    	}
+    	
+    	// reset our seek position
+    	readOnlyLog.seek(initialOffset);
+    	
+    	print();
     }
 }

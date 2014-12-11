@@ -206,6 +206,7 @@ public class LogFile {
 
                 // must do this here, since rollback only works for
                 // live transactions (needs tidToFirstLogRecord)
+                System.out.println("rollback called");
                 logFileRecovery.rollback(tid);
             }
         }

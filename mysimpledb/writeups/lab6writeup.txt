@@ -47,21 +47,21 @@ After you complete the lab, please answer the following questions.
 
 8. What is your name?  If you work with a partner, be sure to write both of your names.
 
-    <Replace this text with your answer>
+    Matt Brauner
 
 9. What did you think of this assignment?
 
-    <Replace this text with your answer>
+    It was really interesting figuring out how to make this work. I enjoyed it.
 
 10. What was the hardest part of this assignment?
 
-    <Replace this text with your answer>
+    Figuring out the proper algorithm for rollback() and recover(). My recover() algorithm wasn't quite right which caused me endless frustration. Luckily, it's pretty well documented in the book.
 
 11. Describe any missing or incomplete elements of your code.
 
-    <Replace this text with your answer>
+    Only the optional problems.
 
 12. Roughly how long did you spend working on this lab?
 
-    <Replace this text with your answer>
+    7 hrs?
 

@@ -44,6 +44,7 @@ public class LogRecoveryTest extends LogTestBase {
         dontInsert(hf1, 4, -1);
 
         Transaction t = new Transaction();
+        System.out.println(t.getId().toString());
         t.start();
         look(hf1, t, 1, true);
         look(hf1, t, 2, true);
